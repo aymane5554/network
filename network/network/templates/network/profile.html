@@ -1,0 +1,113 @@
+{% extends "network/layout.html" %}
+
+{% block body %}
+    <center>
+        <h1>{{user.username}}</h1>
+        <h3>Following: {{user.following.all.count}} Followers: {{user.followers.all.count}}</h3>
+
+        {% if request.user.id != user.id and user.is_authenticated %}
+        {% if user.id in following_list %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="submit" value="unfollow" class="btn btn-outline-danger" name="un">
+        </form>
+        {% elif user.id not in following_list %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="submit" value="follow" class="btn btn-outline-primary" name="fo">
+        </form>
+        {% endif %}
+        {% endif %}
+    </center>
+    <div id="all-posts">
+        {% for p in posts %}
+        <div class="post">
+            <a href="/u/{{p.user.id}}" style="color: black;text-decoration: none;"><b>{{p.user}}</b></a>
+            {% if p.user.id == request.user.id %}
+            <button style="padding: 0px; border: none; background-color: transparent;" onclick="edit({{p.id}});">✏</button>
+            {% endif %}
+            <div id="text-div{{p.id}}">
+                <p id="text{{p.id}}">{{p.text}}</p>
+            </div>
+            <span style="color: gray;">{{p.timestamp}}</span><br>
+            <span id="likes-{{p.id}}">{{p.likes}}</span><button style="padding: 0px; border: none; background-color: transparent;" id="like-btn"  onclick="like({{p.id}},{{request.user.id}});">🤍</button>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <span class="current">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+    </span><br> 
+    <nav aria-label="Page navigation example">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                <li class="page-item"><a class="page-link" href="?page=1">1</a></li>
+            {% endif %} 
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">next</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    <script>
+        function like(id,user_id){
+            fetch(`/p/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                    liked: true
+                    })
+                })
+            .then(response => response.json())
+            .then(data =>{
+                if(data.message == "post liked"){
+                    document.querySelector(`#likes-${id}`).innerHTML= parseInt(document.querySelector(`#likes-${id}`).innerHTML)+1 
+                }
+                else if(data.message == "post unliked"){
+                    document.querySelector(`#likes-${id}`).innerHTML= parseInt(document.querySelector(`#likes-${id}`).innerHTML)-1 
+                }
+            })
+        }
+        function edit(id){
+            var text = document.querySelector(`#text${id}`).innerHTML;
+            var div = document.querySelector(`#text-div${id}`)
+            div.innerHTML = "";
+            var form = document.createElement("form")
+            form.setAttribute("id", "edit-text");
+            div.appendChild(form)
+            var ti = document.createElement("textarea")
+            ti.name = "text";
+            ti.id = `text-edit-input${id}`;
+            ti.className = "form-control";
+            ti.value = text;
+            form.appendChild(ti)
+            var submit = document.createElement("input")
+            submit.type = "submit";
+            submit.name = "submit";
+            submit.value = "save";
+            submit.className = "btn btn-primary";
+            form.appendChild(submit);
+            submit.disabled = true;
+            ti.onkeyup = () => {
+            if (ti.value.length > 0) {
+                submit.disabled = false;
+            }
+            else {
+                submit.disabled = true;
+            }
+    }
+            form.addEventListener("submit",()=>{
+                fetch(`/p/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                    text: ti.value
+                    })
+                })
+                .then(response => response.json())
+                .then(data =>{
+                    div.innerHTML = `<p id="text${id}" >${data.text}</p>`;
+                })
+            })
+        }
+    </script>
+{% endblock %}
